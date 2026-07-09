@@ -4,27 +4,114 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useUserProfile, hasMinRole, UserRole } from "@/lib/hooks/useUserProfile";
 
-const navLinks = [
-  { label: "Events", href: "/events" },
-  { label: "Devotions", href: "/devotions" },
-  { label: "Sermons", href: "/sermons" },
-  { label: "Training", href: "/training" },
-  { label: "Reading Plan", href: "/reading-plan" },
-  { label: "Give", href: "/give" },
+// ─── Link definitions ─────────────────────────────────────────────────────────
+
+/**
+ * Each link carries a `minRole` — the lowest role that can see it.
+ * Role hierarchy (ascending access): member → minister → leader → admin
+ *
+ * Visibility rules:
+ *   member   → Events, Devotions, Sermons, Reading Plan, Give
+ *   minister → + Training
+ *   leader   → + Admin
+ *   admin    → same as leader (full access)
+ */
+interface NavLink {
+  label: string;
+  href: string;
+  minRole: UserRole;
+  /** When true the link renders as a filled pill button */
+  cta?: boolean;
+}
+
+const NAV_LINKS: NavLink[] = [
+  { label: "Events",       href: "/events",       minRole: "member"   },
+  { label: "Devotions",    href: "/devotions",    minRole: "member"   },
+  { label: "Sermons",      href: "/sermons",      minRole: "member"   },
+  { label: "Training",     href: "/training",     minRole: "minister" },
+  { label: "Reading Plan", href: "/reading-plan", minRole: "member"   },
+  { label: "Give",         href: "/give",         minRole: "member",  cta: true },
+  { label: "Admin",        href: "/admin",        minRole: "leader"   },
 ];
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Navbar() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, profile } = useUserProfile();
+
+  // Determine which links to show.
+  // • Logged-out visitors see NO role-gated links (profile is null).
+  // • Logged-in users see links whose minRole ≤ their role.
+  const visibleLinks = profile
+    ? NAV_LINKS.filter((link) => hasMinRole(profile.role, link.minRole))
+    : [];
 
   async function handleSignOut() {
     await signOut();
     setMenuOpen(false);
     router.push("/");
   }
+
+  /** Desktop link pill */
+  function DesktopLink({ link }: { link: NavLink }) {
+    if (link.cta) {
+      return (
+        <Link
+          href={link.href}
+          className="ml-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+        >
+          {link.label}
+        </Link>
+      );
+    }
+    if (link.label === "Admin") {
+      return (
+        <Link
+          href={link.href}
+          className="rounded-md px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-50 transition-colors"
+        >
+          {link.label}
+        </Link>
+      );
+    }
+    return (
+      <Link
+        href={link.href}
+        className="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+      >
+        {link.label}
+      </Link>
+    );
+  }
+
+  /** Mobile link row */
+  function MobileLink({ link }: { link: NavLink }) {
+    const base = "block rounded-md px-3 py-2.5 text-sm font-medium transition-colors";
+    const classes =
+      link.cta
+        ? `${base} bg-blue-600 text-white text-center hover:bg-blue-700`
+        : link.label === "Admin"
+        ? `${base} text-purple-700 font-semibold hover:bg-purple-50`
+        : `${base} text-gray-600 hover:bg-gray-100 hover:text-gray-900`;
+
+    return (
+      <Link href={link.href} onClick={() => setMenuOpen(false)} className={classes}>
+        {link.label}
+      </Link>
+    );
+  }
+
+  // Initials for the avatar chip
+  const initials = (user?.displayName ?? user?.email ?? "?")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
@@ -39,27 +126,11 @@ export default function Navbar() {
 
         {/* Desktop Links */}
         <ul className="hidden md:flex items-center gap-1">
-          {navLinks.map((link) =>
-            link.label === "Give" ? (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="ml-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-                >
-                  Give
-                </Link>
-              </li>
-            ) : (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            )
-          )}
+          {visibleLinks.map((link) => (
+            <li key={link.href}>
+              <DesktopLink link={link} />
+            </li>
+          ))}
 
           {/* Auth controls */}
           <li className="ml-3 flex items-center gap-2 border-l border-gray-200 pl-3">
@@ -69,14 +140,8 @@ export default function Navbar() {
                   href="/profile"
                   className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                 >
-                  {/* Initials avatar */}
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                    {(user.displayName ?? user.email ?? "?")
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2)}
+                    {initials}
                   </span>
                   <span className="max-w-[120px] truncate">
                     {user.displayName ?? user.email}
@@ -137,19 +202,9 @@ export default function Navbar() {
       {menuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white px-6 pb-4">
           <ul className="flex flex-col gap-1 pt-2">
-            {navLinks.map((link) => (
+            {visibleLinks.map((link) => (
               <li key={link.href}>
-                <Link
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  className={`block rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-                    link.label === "Give"
-                      ? "bg-blue-600 text-white text-center hover:bg-blue-700"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                >
-                  {link.label}
-                </Link>
+                <MobileLink link={link} />
               </li>
             ))}
 

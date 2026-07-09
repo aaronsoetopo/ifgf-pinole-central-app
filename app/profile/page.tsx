@@ -2,73 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { signOut } from "@/lib/auth";
-import { useAuth } from "@/lib/hooks/useAuth";
-
-interface UserProfile {
-  name: string;
-  email: string;
-  role: string;
-}
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 // ─── Role badge styling ────────────────────────────────────────────────────────
 
-const roleBadge: Record<string, string> = {
-  admin:  "bg-purple-100 text-purple-700 border-purple-200",
-  leader: "bg-blue-100   text-blue-700   border-blue-200",
-  member: "bg-green-100  text-green-700  border-green-200",
+const roleBadgeClasses: Record<string, string> = {
+  admin:    "bg-purple-100 text-purple-700 border-purple-200",
+  leader:   "bg-indigo-100 text-indigo-700 border-indigo-200",
+  minister: "bg-blue-100   text-blue-700   border-blue-200",
+  member:   "bg-green-100  text-green-700  border-green-200",
 };
 
 function getRoleBadge(role: string) {
-  return roleBadge[role] ?? "bg-gray-100 text-gray-700 border-gray-200";
+  return roleBadgeClasses[role] ?? "bg-gray-100 text-gray-700 border-gray-200";
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [fetchLoading, setFetchLoading] = useState(true);
+  const { user, profile, loading, error } = useUserProfile();
   const [signingOut, setSigningOut] = useState(false);
-  const [error, setError] = useState("");
 
-  // Redirect unauthenticated visitors to login
+  // Redirect unauthenticated visitors to login once auth resolves
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!loading && !user) {
       router.replace("/login");
     }
-  }, [authLoading, user, router]);
-
-  // Fetch Firestore profile once we have a user
-  useEffect(() => {
-    if (!user) return;
-
-    async function fetchProfile() {
-      try {
-        const snap = await getDoc(doc(db, "users", user!.uid));
-        if (snap.exists()) {
-          setProfile(snap.data() as UserProfile);
-        } else {
-          // Fallback to Auth profile data if no Firestore doc exists
-          setProfile({
-            name:  user!.displayName ?? "Unknown",
-            email: user!.email ?? "",
-            role:  "member",
-          });
-        }
-      } catch {
-        setError("Could not load your profile. Please try again.");
-      } finally {
-        setFetchLoading(false);
-      }
-    }
-
-    fetchProfile();
-  }, [user]);
+  }, [loading, user, router]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -78,7 +40,7 @@ export default function ProfilePage() {
 
   // ── Loading skeleton ──────────────────────────────────────────────────────
 
-  if (authLoading || fetchLoading) {
+  if (loading) {
     return (
       <main className="flex flex-1 items-center justify-center py-24 px-6">
         <div className="w-full max-w-md animate-pulse space-y-4">
@@ -101,7 +63,7 @@ export default function ProfilePage() {
 
   if (!profile) return null;
 
-  // ── Profile card ─────────────────────────────────────────────────────────
+  // ── Profile card ──────────────────────────────────────────────────────────
 
   const initials = profile.name
     .split(" ")
