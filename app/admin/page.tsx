@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { subscribeToMinistryTeams } from "@/lib/ministryTeams";
+import { subscribeToLocations } from "@/lib/locations";
 
 // ─── Admin module cards ───────────────────────────────────────────────────────
 
@@ -24,6 +25,13 @@ const ADMIN_MODULES: AdminModule[] = [
     icon: "👥",
     color: { bg: "bg-purple-100", text: "text-purple-700", ring: "ring-purple-200" },
   },
+  {
+    title: "Locations",
+    description: "Manage church campus locations and addresses.",
+    href: "/admin/locations",
+    icon: "📍",
+    color: { bg: "bg-teal-100", text: "text-teal-700", ring: "ring-teal-200" },
+  },
   // Future modules can be added here
   // { title: "Members", href: "/admin/members", … },
   // { title: "Events", href: "/admin/events", … },
@@ -34,11 +42,20 @@ const ADMIN_MODULES: AdminModule[] = [
 export default function AdminDashboardPage() {
   const { profile } = useUserProfile();
   const [teamCount, setTeamCount] = useState<number | null>(null);
+  const [locationCount, setLocationCount] = useState<number | null>(null);
 
   // Fetch a live team count for the stat card
   useEffect(() => {
     const unsubscribe = subscribeToMinistryTeams((teams) => {
       setTeamCount(teams.length);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch a live location count for the stat card
+  useEffect(() => {
+    const unsubscribe = subscribeToLocations((locations) => {
+      setLocationCount(locations.length);
     });
     return () => unsubscribe();
   }, []);
@@ -50,6 +67,12 @@ export default function AdminDashboardPage() {
       value: teamCount === null ? "—" : String(teamCount),
       icon: "👥",
       color: "bg-purple-50 border-purple-200 text-purple-700",
+    },
+    {
+      label: "Locations",
+      value: locationCount === null ? "—" : String(locationCount),
+      icon: "📍",
+      color: "bg-teal-50 border-teal-200 text-teal-700",
     },
   ];
 
