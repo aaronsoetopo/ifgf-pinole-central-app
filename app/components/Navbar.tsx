@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { signOut } from "@/lib/auth";
 
 const navLinks = [
   { label: "Events", href: "/events" },
@@ -13,7 +17,23 @@ const navLinks = [
 ];
 
 export default function Navbar() {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  // Subscribe to Firebase auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  async function handleSignOut() {
+    await signOut();
+    setMenuOpen(false);
+    router.push("/");
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
@@ -49,6 +69,38 @@ export default function Navbar() {
               </li>
             )
           )}
+
+          {/* Auth controls */}
+          <li className="ml-3 flex items-center gap-2 border-l border-gray-200 pl-3">
+            {user ? (
+              <>
+                <span className="max-w-[140px] truncate text-sm text-gray-600">
+                  {user.displayName ?? user.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="rounded-full border border-blue-600 px-4 py-1.5 text-sm font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  Sign up
+                </Link>
+              </>
+            )}
+          </li>
         </ul>
 
         {/* Mobile Hamburger Button */}
@@ -95,6 +147,40 @@ export default function Navbar() {
                 </Link>
               </li>
             ))}
+
+            {/* Mobile auth controls */}
+            <li className="mt-2 border-t border-gray-100 pt-2">
+              {user ? (
+                <div className="flex flex-col gap-1">
+                  <span className="px-3 py-1 text-xs text-gray-400">
+                    Signed in as {user.displayName ?? user.email}
+                  </span>
+                  <button
+                    onClick={handleSignOut}
+                    className="block w-full rounded-md px-3 py-2.5 text-left text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <Link
+                    href="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                  >
+                    Log in
+                  </Link>
+                  <Link
+                    href="/signup"
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-md bg-blue-600 px-3 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                  >
+                    Sign up
+                  </Link>
+                </div>
+              )}
+            </li>
           </ul>
         </div>
       )}
