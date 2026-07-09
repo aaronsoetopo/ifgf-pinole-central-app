@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { signOut } from "@/lib/auth";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 const navLinks = [
   { label: "Events", href: "/events" },
@@ -19,15 +18,7 @@ const navLinks = [
 export default function Navbar() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-
-  // Subscribe to Firebase auth state
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-    });
-    return () => unsubscribe();
-  }, []);
+  const { user } = useAuth();
 
   async function handleSignOut() {
     await signOut();
@@ -74,9 +65,23 @@ export default function Navbar() {
           <li className="ml-3 flex items-center gap-2 border-l border-gray-200 pl-3">
             {user ? (
               <>
-                <span className="max-w-[140px] truncate text-sm text-gray-600">
-                  {user.displayName ?? user.email}
-                </span>
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  {/* Initials avatar */}
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                    {(user.displayName ?? user.email ?? "?")
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </span>
+                  <span className="max-w-[120px] truncate">
+                    {user.displayName ?? user.email}
+                  </span>
+                </Link>
                 <button
                   onClick={handleSignOut}
                   className="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
@@ -155,6 +160,13 @@ export default function Navbar() {
                   <span className="px-3 py-1 text-xs text-gray-400">
                     Signed in as {user.displayName ?? user.email}
                   </span>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                  >
+                    My Profile
+                  </Link>
                   <button
                     onClick={handleSignOut}
                     className="block w-full rounded-md px-3 py-2.5 text-left text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
