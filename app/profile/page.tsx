@@ -27,9 +27,12 @@ export default function ProfilePage() {
 
   // Redirect unauthenticated visitors to login once auth resolves
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;         // still resolving auth + Firestore
+    if (!user) {                 // confirmed: no session
       router.replace("/login");
     }
+    // Note: profile=null while user exists means Firestore is still fetching.
+    // The loading skeleton below handles that state; no redirect needed.
   }, [loading, user, router]);
 
   async function handleSignOut() {

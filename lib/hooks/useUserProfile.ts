@@ -51,17 +51,26 @@ export function useUserProfile(): {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // No user — clear profile and stop loading
+    // ── Race-condition guard ───────────────────────────────────────────────
+    // Firebase Auth fires onAuthStateChanged asynchronously. On the very first
+    // render, `user` is null and `authLoading` is true. Without this guard the
+    // effect would immediately set profileLoading=false (seeing user=null),
+    // which causes a one-render window where loading=false AND profile=null
+    // even for logged-in users — triggering a false redirect in role guards.
+    //
+    // Solution: do nothing until auth has fully resolved.
+    if (authLoading) return;
+
+    // Auth resolved with no user — clear profile and mark done
     if (!user) {
       setProfile(null);
       setProfileLoading(false);
       return;
     }
 
-    // Reset loading when user changes
+    // Auth resolved with a user — start the Firestore subscription
     setProfileLoading(true);
 
-    // Real-time subscription to /users/{uid}
     const unsubscribe = onSnapshot(
       doc(db, "users", user.uid),
       (snap) => {
@@ -85,7 +94,8 @@ export function useUserProfile(): {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
   return {
     user,
