@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth";
-import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { useUserProfile, hasMinRole } from "@/lib/hooks/useUserProfile";
+import { MinistryTeam, subscribeToMinistryTeams } from "@/lib/ministryTeams";
+import { setUserTeams } from "@/lib/users";
 
 // ─── Role badge styling ────────────────────────────────────────────────────────
 
@@ -24,6 +26,11 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, loading, error } = useUserProfile();
   const [signingOut, setSigningOut] = useState(false);
+  const [teams, setTeams] = useState<MinistryTeam[]>([]);
+
+  const [isEditingTeams, setIsEditingTeams] = useState(false);
+  const [stagedTeams, setStagedTeams] = useState<string[]>([]);
+  const [isSavingTeams, setIsSavingTeams] = useState(false);
 
   // Redirect unauthenticated visitors to login once auth resolves
   useEffect(() => {
@@ -34,6 +41,41 @@ export default function ProfilePage() {
     // Note: profile=null while user exists means Firestore is still fetching.
     // The loading skeleton below handles that state; no redirect needed.
   }, [loading, user, router]);
+
+  // Load ministry teams if they are allowed to select them
+  useEffect(() => {
+    if (!profile || !hasMinRole(profile.role, "minister")) return;
+    const unsubscribe = subscribeToMinistryTeams((data) => setTeams(data));
+    return () => unsubscribe();
+  }, [profile]);
+
+  function openEditTeams() {
+    if (!profile) return;
+    setStagedTeams(profile.memberOfTeams || []);
+    setIsEditingTeams(true);
+  }
+
+  function handleToggleStagedTeam(teamId: string, checked: boolean) {
+    if (checked) {
+      setStagedTeams((prev) => [...prev, teamId]);
+    } else {
+      setStagedTeams((prev) => prev.filter((id) => id !== teamId));
+    }
+  }
+
+  async function handleSaveTeams() {
+    if (!user) return;
+    setIsSavingTeams(true);
+    try {
+      await setUserTeams(user.uid, stagedTeams);
+      setIsEditingTeams(false);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save teams.");
+    } finally {
+      setIsSavingTeams(false);
+    }
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -113,8 +155,46 @@ export default function ProfilePage() {
             />
           </div>
 
+          {/* Ministry Teams Selection for ministers+ */}
+          {hasMinRole(profile.role, "minister") && (
+            <div className="border-t border-gray-100 px-6 py-5 bg-gray-50/50">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-gray-900">My Ministry Teams</h3>
+                <button
+                  onClick={openEditTeams}
+                  className="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 shadow-sm hover:border-blue-300 hover:text-blue-700 transition"
+                >
+                  Edit
+                </button>
+              </div>
+              
+              {teams.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">Loading teams...</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {(profile.memberOfTeams || []).length === 0 ? (
+                    <span className="text-sm text-gray-500 italic">None selected</span>
+                  ) : (
+                    (profile.memberOfTeams || []).map((teamId) => {
+                      const team = teams.find((t) => t.id === teamId);
+                      if (!team) return null;
+                      return (
+                        <span
+                          key={teamId}
+                          className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 border border-blue-200"
+                        >
+                          {team.name}
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Actions */}
-          <div className="flex flex-col gap-3 px-6 pb-6 pt-4">
+          <div className="flex flex-col gap-3 px-6 pb-6 pt-4 border-t border-gray-100">
             <button
               onClick={handleSignOut}
               disabled={signingOut}
@@ -125,11 +205,97 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* ── Edit Teams Modal ─────────────────────────────────────────────────── */}
+      {isEditingTeams && (
+        <Modal onClose={() => !isSavingTeams && setIsEditingTeams(false)} title="Edit My Ministry Teams">
+          <div className="space-y-3 mb-6 mt-2 max-h-60 overflow-y-auto pr-2">
+            {teams.map((team) => {
+              const isChecked = stagedTeams.includes(team.id);
+              return (
+                <label key={team.id} className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={(e) => handleToggleStagedTeam(team.id, e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 transition cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-700 font-medium">{team.name}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button
+              onClick={() => setIsEditingTeams(false)}
+              disabled={isSavingTeams}
+              className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveTeams}
+              disabled={isSavingTeams}
+              className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            >
+              {isSavingTeams ? "Saving…" : "Confirm"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </main>
   );
 }
 
 // ─── Sub-component ────────────────────────────────────────────────────────────
+
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div
+        ref={overlayRef}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+            </svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function ProfileRow({
   label,

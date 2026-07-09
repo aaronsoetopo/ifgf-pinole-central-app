@@ -19,6 +19,7 @@ export interface UserDocument {
   email: string;
   role: UserRole;
   leaderOfTeams?: string[]; // Array of MinistryTeam IDs
+  memberOfTeams?: string[]; // Array of MinistryTeam IDs
 }
 
 // ─── Collection ref ───────────────────────────────────────────────────────────
@@ -64,5 +65,23 @@ export async function assignTeamLeader(userId: string, teamId: string): Promise<
 export async function removeTeamLeader(userId: string, teamId: string): Promise<void> {
   await updateDoc(doc(usersRef, userId), {
     leaderOfTeams: arrayRemove(teamId),
+  });
+}
+
+/**
+ * Toggles a user's membership in a ministry team.
+ */
+export async function toggleTeamMembership(userId: string, teamId: string, join: boolean): Promise<void> {
+  await updateDoc(doc(usersRef, userId), {
+    memberOfTeams: join ? arrayUnion(teamId) : arrayRemove(teamId),
+  });
+}
+
+/**
+ * Replaces a user's entire memberOfTeams array.
+ */
+export async function setUserTeams(userId: string, teamIds: string[]): Promise<void> {
+  await updateDoc(doc(usersRef, userId), {
+    memberOfTeams: teamIds,
   });
 }

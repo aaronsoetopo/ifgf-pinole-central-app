@@ -13,6 +13,8 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole;
+  leaderOfTeams?: string[];
+  memberOfTeams?: string[];
 }
 
 // Role priority — higher number = more access
