@@ -33,21 +33,21 @@ export default function FirebaseStatus() {
   }, []);
 
   const styles: Record<Status, string> = {
-    checking:  "bg-yellow-100 text-yellow-800 border-yellow-300",
+    checking: "bg-yellow-100 text-yellow-800 border-yellow-300",
     connected: "bg-green-100  text-green-800  border-green-300",
-    error:     "bg-red-100    text-red-800    border-red-300",
+    error: "bg-red-100    text-red-800    border-red-300",
   };
 
   const icons: Record<Status, string> = {
-    checking:  "⏳",
+    checking: "⏳",
     connected: "✅",
-    error:     "❌",
+    error: "❌",
   };
 
   const labels: Record<Status, string> = {
-    checking:  "Checking Firebase…",
+    checking: "Checking Firebase…",
     connected: "Firebase connected",
-    error:     `Firebase error: ${errorMessage}`,
+    error: `Firebase error: ${errorMessage}`,
   };
 
   return (
