@@ -284,11 +284,13 @@ export default function MinistryTeamsAdminPage() {
               <div className="space-y-3">
                 {teams.map((team) => {
                   const teamLeaders = users.filter((u) => u.leaderOfTeams?.includes(team.id));
+                  const teamMembers = users.filter((u) => u.memberOfTeams?.includes(team.id));
                   return (
                     <TeamRow
                       key={team.id}
                       team={team}
                       leaders={teamLeaders}
+                      members={teamMembers}
                       onEdit={() => openEdit(team)}
                       onDelete={() => openDelete(team)}
                       onAssign={() => openAssign(team)}
@@ -503,6 +505,7 @@ export default function MinistryTeamsAdminPage() {
 function TeamRow({
   team,
   leaders,
+  members,
   onEdit,
   onDelete,
   onAssign,
@@ -510,6 +513,7 @@ function TeamRow({
 }: {
   team: MinistryTeam;
   leaders: UserDocument[];
+  members: UserDocument[];
   onEdit: () => void;
   onDelete: () => void;
   onAssign: () => void;
@@ -584,6 +588,27 @@ function TeamRow({
           >
             + Assign
           </button>
+        </div>
+      </div>
+
+      {/* Members section */}
+      <div className="flex flex-col gap-2 border-t border-gray-100 pt-3 sm:flex-row sm:items-center">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 shrink-0">
+          Members:
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {members.length === 0 ? (
+            <span className="text-xs text-gray-400 italic">No members yet</span>
+          ) : (
+            members.map((m) => (
+              <span
+                key={m.id}
+                className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+              >
+                {m.name}
+              </span>
+            ))
+          )}
         </div>
       </div>
     </div>

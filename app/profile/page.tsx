@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth";
 import { useUserProfile, hasMinRole } from "@/lib/hooks/useUserProfile";
 import { MinistryTeam, subscribeToMinistryTeams } from "@/lib/ministryTeams";
-import { setUserTeams } from "@/lib/users";
+import { setUserTeams, subscribeToUsers, UserDocument } from "@/lib/users";
 
 // ─── Role badge styling ────────────────────────────────────────────────────────
 
@@ -27,6 +27,7 @@ export default function ProfilePage() {
   const { user, profile, loading, error } = useUserProfile();
   const [signingOut, setSigningOut] = useState(false);
   const [teams, setTeams] = useState<MinistryTeam[]>([]);
+  const [users, setUsers] = useState<UserDocument[]>([]);
 
   const [isEditingTeams, setIsEditingTeams] = useState(false);
   const [stagedTeams, setStagedTeams] = useState<string[]>([]);
@@ -42,10 +43,17 @@ export default function ProfilePage() {
     // The loading skeleton below handles that state; no redirect needed.
   }, [loading, user, router]);
 
-  // Load ministry teams if they are allowed to select them
+  // Load ministry teams (all users can see teams if they are a leader or a minister)
   useEffect(() => {
-    if (!profile || !hasMinRole(profile.role, "minister")) return;
+    if (!profile) return;
     const unsubscribe = subscribeToMinistryTeams((data) => setTeams(data));
+    return () => unsubscribe();
+  }, [profile]);
+
+  // Load all users to resolve leader names
+  useEffect(() => {
+    if (!profile) return;
+    const unsubscribe = subscribeToUsers((data) => setUsers(data));
     return () => unsubscribe();
   }, [profile]);
 
@@ -139,6 +147,21 @@ export default function ProfilePage() {
             >
               {profile.role}
             </span>
+
+            {/* Team Leader Badges */}
+            {(profile.leaderOfTeams || []).length > 0 && teams.length > 0 && (
+              <div className="mt-1 flex flex-wrap justify-center gap-2">
+                {profile.leaderOfTeams!.map((teamId) => {
+                  const team = teams.find((t) => t.id === teamId);
+                  if (!team) return null;
+                  return (
+                    <span key={teamId} className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+                      {team.name} Leader
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Info rows */}
@@ -171,20 +194,35 @@ export default function ProfilePage() {
               {teams.length === 0 ? (
                 <p className="text-sm text-gray-500 italic">Loading teams...</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2">
                   {(profile.memberOfTeams || []).length === 0 ? (
                     <span className="text-sm text-gray-500 italic">None selected</span>
                   ) : (
                     (profile.memberOfTeams || []).map((teamId) => {
                       const team = teams.find((t) => t.id === teamId);
                       if (!team) return null;
+
+                      // Find leaders
+                      const teamLeaders = users.filter((u) => u.leaderOfTeams?.includes(team.id));
+                      let leaderText = "No leader assigned";
+                      if (teamLeaders.length > 0) {
+                        leaderText = teamLeaders.map((u) => {
+                          const names = u.name.split(" ");
+                          return names.length > 1 ? `${names[0]} ${names[names.length - 1][0]}.` : u.name;
+                        }).join(", ");
+                        leaderText = `${team.name} Leader - ${leaderText}`;
+                      }
+
                       return (
-                        <span
+                        <div
                           key={teamId}
-                          className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 border border-blue-200"
+                          className="flex flex-col rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3"
                         >
-                          {team.name}
-                        </span>
+                          <span className="font-semibold text-blue-900">{team.name}</span>
+                          <span className="mt-0.5 text-xs text-blue-700 font-medium">
+                            {leaderText}
+                          </span>
+                        </div>
                       );
                     })
                   )}
