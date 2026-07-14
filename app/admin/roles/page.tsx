@@ -106,6 +106,10 @@ export default function ManageRolesPage() {
   }
 
   function handleSave(userId: string) {
+    // user is guaranteed non-null by the loading guard above, but guard here
+    // explicitly so TypeScript can narrow the type before accessing .uid.
+    if (!user) return;
+
     // Self-demotion guard: show confirm dialog if the admin is changing their
     // own role away from "admin"
     if (userId === user.uid && pending[userId] !== "admin") {
