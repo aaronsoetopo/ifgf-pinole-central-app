@@ -85,3 +85,10 @@ export async function setUserTeams(userId: string, teamIds: string[]): Promise<v
     memberOfTeams: teamIds,
   });
 }
+
+/**
+ * Updates a user's role field in Firestore.
+ */
+export async function setUserRole(userId: string, role: UserRole): Promise<void> {
+  await updateDoc(doc(usersRef, userId), { role });
+}

@@ -15,6 +15,8 @@ interface AdminModule {
   icon: string;
   /** Tailwind colour tokens for icon bg and text */
   color: { bg: string; text: string; ring: string };
+  /** When true, only users with role "admin" (not just leader) see this tile */
+  adminOnly?: boolean;
 }
 
 const ADMIN_MODULES: AdminModule[] = [
@@ -32,15 +34,20 @@ const ADMIN_MODULES: AdminModule[] = [
     icon: "📍",
     color: { bg: "bg-teal-100", text: "text-teal-700", ring: "ring-teal-200" },
   },
-  // Future modules can be added here
-  // { title: "Members", href: "/admin/members", … },
-  // { title: "Events", href: "/admin/events", … },
+  {
+    title: "Manage User Roles",
+    description: "Assign and update roles for all registered members.",
+    href: "/admin/roles",
+    icon: "🔑",
+    color: { bg: "bg-amber-100", text: "text-amber-700", ring: "ring-amber-200" },
+    adminOnly: true,
+  },
 ];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
-  const { profile } = useUserProfile();
+  const { profile, loading } = useUserProfile();
   const [teamCount, setTeamCount] = useState<number | null>(null);
   const [locationCount, setLocationCount] = useState<number | null>(null);
 
@@ -75,6 +82,35 @@ export default function AdminDashboardPage() {
       color: "bg-teal-50 border-teal-200 text-teal-700",
     },
   ];
+  // Don't render until the user document has loaded — avoids a null-profile
+  // crash in the tile filter and the welcome message below.
+  if (loading || !profile) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-24">
+        <div className="flex flex-col items-center gap-3">
+          <svg
+            className="h-8 w-8 animate-spin text-gray-400"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12" cy="12" r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          <p className="text-sm text-gray-400">Loading…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="flex flex-1 flex-col px-6 py-10">
@@ -110,7 +146,9 @@ export default function AdminDashboardPage() {
             Manage
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {ADMIN_MODULES.map((mod) => (
+            {ADMIN_MODULES.filter(
+              (mod) => !mod.adminOnly || profile.role === "admin"
+            ).map((mod) => (
               <Link
                 key={mod.href}
                 href={mod.href}
