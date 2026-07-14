@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth";
@@ -41,6 +41,7 @@ const NAV_LINKS: NavLink[] = [
 export default function Navbar() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { user, profile } = useUserProfile();
 
   // Determine which links to show.
@@ -51,9 +52,10 @@ export default function Navbar() {
     : [];
 
   async function handleSignOut() {
+    setShowLogoutConfirm(false);
     await signOut();
     setMenuOpen(false);
-    router.push("/");
+    router.push("/login");
   }
 
   /** Desktop link pill */
@@ -148,7 +150,7 @@ export default function Navbar() {
                   </span>
                 </Link>
                 <button
-                  onClick={handleSignOut}
+                  onClick={() => setShowLogoutConfirm(true)}
                   className="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                 >
                   Sign out
@@ -223,7 +225,7 @@ export default function Navbar() {
                     My Profile
                   </Link>
                   <button
-                    onClick={handleSignOut}
+                    onClick={() => setShowLogoutConfirm(true)}
                     className="block w-full rounded-md px-3 py-2.5 text-left text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                   >
                     Sign out
@@ -251,6 +253,79 @@ export default function Navbar() {
           </ul>
         </div>
       )}
+
+      {/* ── Logout Confirmation Modal ───────────────────────────────────────── */}
+      {showLogoutConfirm && (
+        <NavModal onClose={() => setShowLogoutConfirm(false)} title="Sign Out">
+          <p className="text-sm text-gray-600 mb-6">
+            Are you sure you want to sign out?
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button
+              onClick={() => setShowLogoutConfirm(false)}
+              className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="rounded-full bg-red-500 px-5 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        </NavModal>
+      )}
     </header>
+  );
+}
+
+// ─── NavModal (local copy to keep Navbar self-contained) ───────────────────────────
+
+function NavModal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div
+        ref={overlayRef}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+            </svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
   );
 }

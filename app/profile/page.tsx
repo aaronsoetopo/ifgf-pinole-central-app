@@ -26,6 +26,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, loading, error } = useUserProfile();
   const [signingOut, setSigningOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [teams, setTeams] = useState<MinistryTeam[]>([]);
   const [users, setUsers] = useState<UserDocument[]>([]);
 
@@ -234,11 +235,11 @@ export default function ProfilePage() {
           {/* Actions */}
           <div className="flex flex-col gap-3 px-6 pb-6 pt-4 border-t border-gray-100">
             <button
-              onClick={handleSignOut}
+              onClick={() => setShowLogoutConfirm(true)}
               disabled={signingOut}
               className="w-full rounded-full bg-red-500 py-2.5 text-sm font-semibold text-white shadow hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 disabled:opacity-60 transition-colors"
             >
-              {signingOut ? "Signing out…" : "Log out"}
+              {signingOut ? "Signing out…" : "Log Out"}
             </button>
           </div>
         </div>
@@ -277,6 +278,34 @@ export default function ProfilePage() {
               className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
             >
               {isSavingTeams ? "Saving…" : "Confirm"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Logout Confirmation Modal ─────────────────────────────────────────── */}
+      {showLogoutConfirm && (
+        <Modal
+          onClose={() => !signingOut && setShowLogoutConfirm(false)}
+          title="Log Out"
+        >
+          <p className="text-sm text-gray-600 mb-6">
+            Are you sure you want to log out?
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button
+              onClick={() => setShowLogoutConfirm(false)}
+              disabled={signingOut}
+              className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="rounded-full bg-red-500 px-5 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60 transition-colors"
+            >
+              {signingOut ? "Signing out…" : "Log Out"}
             </button>
           </div>
         </Modal>
